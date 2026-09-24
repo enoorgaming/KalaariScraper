@@ -39,6 +39,7 @@ def get_portfolio_links():
     """Scrape the main portfolio page for all individual company page URLs."""
     resp = requests.get(PORTFOLIO_URL, headers=HEADERS, timeout=20)
     resp.raise_for_status()
+    resp.encoding = resp.apparent_encoding
     soup = BeautifulSoup(resp.text, "html.parser")
 
     links = set()
@@ -59,6 +60,7 @@ def scrape_company_page(url):
     try:
         resp = requests.get(url, headers=HEADERS, timeout=20)
         resp.raise_for_status()
+        resp.encoding = resp.apparent_encoding  # avoid garbled smart-quotes/apostrophes
     except requests.RequestException as e:
         print(f"  [!] Failed to fetch {url}: {e}")
         return None
@@ -77,12 +79,9 @@ def scrape_company_page(url):
         "why_invested": None,
     }
 
-    # Company name: usually the H1 or the slug at the end of the URL
-    h1 = soup.find("h1")
-    if h1:
-        data["name"] = h1.get_text(strip=True)
-    else:
-        data["name"] = url.rstrip("/").split("/")[-1].replace("-", " ").title()
+    # Company name: derive from the URL slug. The page's first <h1> is a
+    # newsletter signup header, not the company name.
+    data["name"] = url.rstrip("/").split("/")[-1].replace("-", " ").title()
 
     # One-line description: often an H2 right after leadership/founding info
     h2s = [h.get_text(strip=True) for h in soup.find_all("h2")]
